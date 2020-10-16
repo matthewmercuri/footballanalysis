@@ -8,6 +8,9 @@ BASE_URL = "https://www.pro-football-reference.com"
 
 class Data:
 
+    def __init__(self):
+        self.player_dict = self.players()
+
     def fant_raw(self, year=THIS_YEAR):
         F = f'https://www.pro-football-reference.com/years/{year}/fantasy.htm'
         r = requests.get(F)
@@ -35,18 +38,17 @@ class Data:
         table = soup.find(id="fantasy")
 
         df = pd.read_html(str(table), header=1)[0]
+        df['Player'] = df['Player'].apply(lambda x: x.strip())
 
         return df
 
     def career_stats(self, player_name, advanced=False):
-        player_dict = self.players()
-
-        if player_name in player_dict:
+        if player_name in self.player_dict:
             if advanced is True:
-                prof_link = (BASE_URL + player_dict[player_name][:-4] +
+                prof_link = (BASE_URL + self.player_dict[player_name][:-4] +
                              '/gamelog/advanced')
             else:
-                prof_link = (BASE_URL + player_dict[player_name][:-4] +
+                prof_link = (BASE_URL + self.player_dict[player_name][:-4] +
                              '/gamelog/')
         else:
             print('No player record!')
