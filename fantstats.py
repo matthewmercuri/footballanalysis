@@ -10,7 +10,7 @@ import time
 
 Data = Data()
 
-MIN_GAMES = 30
+MIN_GAMES = 20
 
 # =============== POINTS ===============
 PASSING_YARDS = 0.04
@@ -23,6 +23,8 @@ RECEIVING_TD = 6
 
 
 def main():
+    start_time = time.time()
+
     players_dict = Data.players()
     fant_df = Data.fantasy_df()
 
@@ -62,7 +64,8 @@ def main():
         print(f'{round(i/tot_qbs, 2)*100}% of QBs complete')
 
     qb_df = pd.concat(qb_dfs)
-    qb_df.to_csv('results/qbs.csv')
+    qb_df.sort_values('FantPts MEDIAN', ascending=False, inplace=True)
+    qb_df.to_csv('results/qbs20.csv')
     # ========================
 
     # ========== RB ==========
@@ -83,7 +86,8 @@ def main():
         print(f'{round(i/tot_rbs, 2)*100}% of RBs complete')
 
     rb_df = pd.concat(rb_dfs)
-    rb_df.to_csv('results/rbs.csv')
+    rb_df.sort_values('FantPts MEDIAN', ascending=False, inplace=True)
+    rb_df.to_csv('results/rbs20.csv')
     # ========================
 
     # ========== WR ==========
@@ -104,7 +108,12 @@ def main():
         print(f'{round(i/tot_wrs, 2)*100}% of WRs complete')
 
     wr_df = pd.concat(wr_dfs)
-    wr_df.to_csv('results/wrs.csv')
+    wr_df.sort_values('FantPts MEDIAN', ascending=False, inplace=True)
+    wr_df.to_csv('results/wrs20.csv')
+    # ========================
+
+    end_time = time.time()
+    print(f'Finished in {round(end_time-start_time, 2)}s')
 
 
 def _check_if_in_fant_df(players_dict, fant_df):
@@ -168,6 +177,16 @@ def get_player_df(player):
     return Data.career_stats(player)
 
 
+def _recent_relative_perf(last_5_games, median):
+    pts_median_diff = []
+    for pts in last_5_games:
+        diff = pts - median
+        pts_median_diff.append(diff)
+
+    recent_relative_perf = round(np.mean(np.asarray(pts_median_diff)), 2)
+    return recent_relative_perf
+
+
 def _qb(qb, df):
     df['Yds'] = df['Yds'].astype(float)
     df['TD'] = df['TD'].astype(float)
@@ -179,6 +198,9 @@ def _qb(qb, df):
                      (df['Int']*PASSING_INT) + (df['Yds.2']*RUSHING_YARDS) +
                      (df['TD.1']*RUSHING_TD))
 
+    last_5_games = df['FantPts'].tail(5).tolist()
+    last_5_games = last_5_games[::-1]
+
     fant_pts_median = df['FantPts'].median()
     fant_pts_mean = df['FantPts'].mean()
     fant_pts_std = df['FantPts'].std()
@@ -187,11 +209,16 @@ def _qb(qb, df):
     fant_pts_minus_std = fant_pts_mean - fant_pts_std
     fant_pts_skew = fant_pts_median - fant_pts_mean
 
+    # Outperforming median metric
+    recent_relative_perf = _recent_relative_perf(last_5_games, fant_pts_median)
+
     data = {'Name': [qb], 'FantPts MEDIAN': [fant_pts_median],
             'FantPts SKEW': [fant_pts_skew],
             'FantPts +SD': [fant_pts_plus_std],
             'FantPts -SD': [fant_pts_minus_std],
-            'FantPts 30 Percentile': [fant_pts_30_percentile]}
+            'FantPts 30 Percentile': [fant_pts_30_percentile],
+            'Last 5 Games': [last_5_games],
+            'Rec XS Pts': [recent_relative_perf]}
     final_df = pd.DataFrame.from_dict(data=data)
     final_df.set_index('Name', inplace=True)
 
@@ -207,6 +234,9 @@ def _rb(rb, df):
     df['FantPts'] = ((df['Yds']*RUSHING_YARDS) + (df['TD']*RUSHING_TD) +
                      (df['TD.1']*RECEIVING_TD) + (df['Yds.1']*RECEIVING_YARDS))
 
+    last_5_games = df['FantPts'].tail(5).tolist()
+    last_5_games = last_5_games[::-1]
+
     fant_pts_median = df['FantPts'].median()
     fant_pts_mean = df['FantPts'].mean()
     fant_pts_std = df['FantPts'].std()
@@ -215,11 +245,16 @@ def _rb(rb, df):
     fant_pts_minus_std = fant_pts_mean - fant_pts_std
     fant_pts_skew = fant_pts_median - fant_pts_mean
 
+    # Outperforming median metric
+    recent_relative_perf = _recent_relative_perf(last_5_games, fant_pts_median)
+
     data = {'Name': [rb], 'FantPts MEDIAN': [fant_pts_median],
             'FantPts SKEW': [fant_pts_skew],
             'FantPts +SD': [fant_pts_plus_std],
             'FantPts -SD': [fant_pts_minus_std],
-            'FantPts 30 Percentile': [fant_pts_30_percentile]}
+            'FantPts 30 Percentile': [fant_pts_30_percentile],
+            'Last 5 Games': [last_5_games],
+            'Rec XS Pts': [recent_relative_perf]}
     final_df = pd.DataFrame.from_dict(data=data)
     final_df.set_index('Name', inplace=True)
 
@@ -235,6 +270,9 @@ def _wr(wr, df):
     df['FantPts'] = ((df['Yds.1']*RUSHING_YARDS) + (df['TD.1']*RUSHING_TD) +
                      (df['TD']*RECEIVING_TD) + (df['Yds']*RECEIVING_YARDS))
 
+    last_5_games = df['FantPts'].tail(5).tolist()
+    last_5_games = last_5_games[::-1]
+
     fant_pts_median = df['FantPts'].median()
     fant_pts_mean = df['FantPts'].mean()
     fant_pts_std = df['FantPts'].std()
@@ -243,11 +281,16 @@ def _wr(wr, df):
     fant_pts_minus_std = fant_pts_mean - fant_pts_std
     fant_pts_skew = fant_pts_median - fant_pts_mean
 
+    # Outperforming median metric
+    recent_relative_perf = _recent_relative_perf(last_5_games, fant_pts_median)
+
     data = {'Name': [wr], 'FantPts MEDIAN': [fant_pts_median],
             'FantPts SKEW': [fant_pts_skew],
             'FantPts +SD': [fant_pts_plus_std],
             'FantPts -SD': [fant_pts_minus_std],
-            'FantPts 30 Percentile': [fant_pts_30_percentile]}
+            'FantPts 30 Percentile': [fant_pts_30_percentile],
+            'Last 5 Games': [last_5_games],
+            'Rec XS Pts': [recent_relative_perf]}
     final_df = pd.DataFrame.from_dict(data=data)
     final_df.set_index('Name', inplace=True)
 
